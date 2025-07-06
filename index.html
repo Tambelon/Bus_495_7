@@ -5,6 +5,88 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>NASA Space Explorer</title>
   <link href="style.css" rel="stylesheet" type="text/css" />
+  <style>
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      padding: 20px 0;
+    }
+    
+    .gallery-item {
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      transition: transform 0.3s ease;
+    }
+    
+    .gallery-item:hover {
+      transform: translateY(-5px);
+    }
+    
+    .gallery-image {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+    }
+    
+    .gallery-info {
+      padding: 15px;
+    }
+    
+    .gallery-title {
+      font-size: 1.1rem;
+      margin: 0 0 8px 0;
+      color: #333;
+    }
+    
+    .gallery-date {
+      font-size: 0.9rem;
+      color: #666;
+      margin: 0;
+    }
+    
+    .placeholder {
+      text-align: center;
+      grid-column: 1 / -1;
+      padding: 40px 0;
+      color: #666;
+    }
+    
+    .placeholder-icon {
+      font-size: 3rem;
+      margin-bottom: 15px;
+    }
+    
+    button {
+      background-color: #0B3D91;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    
+    button:hover {
+      background-color: #1a5bc4;
+    }
+    
+    input[type="date"] {
+      padding: 7px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-right: 10px;
+    }
+    
+    .error-message {
+      color: #d32f2f;
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 20px;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -16,7 +98,7 @@
     <div class="filters">
       <input type="date" id="startDate" />
       <input type="date" id="endDate" />
-      <button>Get Space Images</button>
+      <button id="fetchImages">Get Space Images</button>
     </div>
 
     <div id="gallery" class="gallery">
@@ -27,7 +109,107 @@
     </div>
   </div>
 
-  <script src="js/dateRange.js"></script>
-  <script src="js/script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Set default dates (today and 7 days ago)
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(endDate.getDate() - 7);
+      
+      document.getElementById('startDate').valueAsDate = startDate;
+      document.getElementById('endDate').valueAsDate = endDate;
+      
+      // Add event listener to the button
+      document.getElementById('fetchImages').addEventListener('click', fetchSpaceImages);
+    });
+    
+    async function fetchSpaceImages() {
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      
+      if (!startDate || !endDate) {
+        showError('Please select both start and end dates');
+        return;
+      }
+      
+      if (new Date(startDate) > new Date(endDate)) {
+        showError('Start date must be before end date');
+        return;
+      }
+      
+      try {
+        // Show loading state
+        const gallery = document.getElementById('gallery');
+        gallery.innerHTML = '<div class="placeholder"><div class="placeholder-icon">⏳</div><p>Loading space images...</p></div>';
+        
+        const apiKey = 'eCmQPQLKFvdk2ZzGeEQi2tTvAJwmndYFQjleBnPY';
+        const url = `https://api.nasa.gov/planetary/apod?api_key=${apiKey}&start_date=${startDate}&end_date=${endDate}`;
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`API request failed with status ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!Array.isArray(data)) {
+          // If we get a single object (happens when start_date == end_date), convert to array
+          displayGallery([data]);
+        } else {
+          // Sort by date (newest first)
+          const sortedData = data.sort((a, b) => new Date(b.date) - new Date(a.date));
+          displayGallery(sortedData);
+        }
+      } catch (error) {
+        showError(`Failed to fetch images: ${error.message}`);
+        console.error('Error fetching space images:', error);
+      }
+    }
+    
+    function displayGallery(images) {
+      const gallery = document.getElementById('gallery');
+      
+      if (images.length === 0) {
+        gallery.innerHTML = '<div class="placeholder"><div class="placeholder-icon">🛸</div><p>No images found for the selected date range</p></div>';
+        return;
+      }
+      
+      gallery.innerHTML = '';
+      
+      images.forEach(item => {
+        // Skip videos (APOD sometimes has video content)
+        if (item.media_type !== 'image') return;
+        
+        const galleryItem = document.createElement('div');
+        galleryItem.className = 'gallery-item';
+        
+        galleryItem.innerHTML = `
+          <img src="${item.url}" alt="${item.title}" class="gallery-image" loading="lazy">
+          <div class="gallery-info">
+            <h3 class="gallery-title">${item.title}</h3>
+            <p class="gallery-date">${formatDate(item.date)}</p>
+          </div>
+        `;
+        
+        gallery.appendChild(galleryItem);
+      });
+      
+      // If all items were videos and we filtered them out
+      if (gallery.innerHTML === '') {
+        gallery.innerHTML = '<div class="placeholder"><div class="placeholder-icon">🎥</div><p>Only video content available for these dates. Try another range.</p></div>';
+      }
+    }
+    
+    function showError(message) {
+      const gallery = document.getElementById('gallery');
+      gallery.innerHTML = `<div class="error-message">${message}</div>`;
+    }
+    
+    function formatDate(dateString) {
+      const options = { year: 'numeric', month: 'long', day: 'numeric' };
+      return new Date(dateString).toLocaleDateString(undefined, options);
+    }
+  </script>
 </body>
 </html>
