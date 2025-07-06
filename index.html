@@ -16,7 +16,12 @@
     <div class="filters">
       <input type="date" id="startDate" />
       <input type="date" id="endDate" />
-      <button>Get Space Images</button>
+      <button id="fetchImages">Get Space Images</button>
+    </div>
+
+    <div id="loading" class="loading" style="display: none;">
+      <div class="spinner"></div>
+      <p>Loading images from NASA...</p>
     </div>
 
     <div id="gallery" class="gallery">
@@ -27,7 +32,60 @@
     </div>
   </div>
 
-  <script src="js/dateRange.js"></script>
-  <script src="js/script.js"></script>
+  <script>
+    document.getElementById('fetchImages').addEventListener('click', async () => {
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      
+      if (!startDate || !endDate) {
+        alert('Please select both start and end dates');
+        return;
+      }
+      
+      const gallery = document.getElementById('gallery');
+      const loading = document.getElementById('loading');
+      
+      // Show loading indicator
+      gallery.style.display = 'none';
+      loading.style.display = 'block';
+      
+      try {
+        const response = await fetch(`/api/nasa/images?start_date=${startDate}&end_date=${endDate}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+          // Clear previous content
+          gallery.innerHTML = '';
+          
+          if (data.length === 0) {
+            gallery.innerHTML = '<div class="placeholder"><p>No images found for the selected date range</p></div>';
+          } else {
+            data.forEach(item => {
+              if (item.media_type === 'image') {
+                const imgElement = document.createElement('div');
+                imgElement.className = 'gallery-item';
+                imgElement.innerHTML = `
+                  <img src="${item.url}" alt="${item.title}" />
+                  <div class="image-info">
+                    <h3>${item.title}</h3>
+                    <p>${item.date}</p>
+                    <p>${item.explanation || 'No description available'}</p>
+                  </div>
+                `;
+                gallery.appendChild(imgElement);
+              }
+            });
+          }
+        } else {
+          gallery.innerHTML = `<div class="error"><p>Error: ${data.error || 'Unknown error occurred'}</p></div>`;
+        }
+      } catch (error) {
+        gallery.innerHTML = `<div class="error"><p>Error fetching data: ${error.message}</p></div>`;
+      } finally {
+        loading.style.display = 'none';
+        gallery.style.display = 'grid'; // or whatever display value you use
+      }
+    });
+  </script>
 </body>
 </html>
