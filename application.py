@@ -5,7 +5,8 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-NASA_API_KEY = 'DEMO_KEY'  # Replace with your actual NASA API key
+NASA_API_KEY = 'eCmQPQLKFvdk2ZzGeEQi2tTvAJwmndYFQjleBnPY
+'  # Replace with your actual NASA API key
 
 @app.route('/api/nasa/images', methods=['GET'])
 def get_nasa_images():
